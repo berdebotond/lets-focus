@@ -4,6 +4,7 @@ import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { EnhancedFocusScene } from './components/EnhancedFocusScene'
 import { SettingsPanel } from './components/SettingsPanel'
+import { ProgressBar } from './components/ProgressBar'
 
 const AppContainer = styled.div`
   width: 100vw;
@@ -55,6 +56,7 @@ function App() {
     sessionsCompleted: 0,
     totalFocusTime: 0,
   });
+  const [startTime, setStartTime] = useState<number | null>(null);
 
   // Calculate progress (0 to 1)
   const progress = 1 - (time / (focusDuration * 60));
@@ -139,11 +141,17 @@ function App() {
       resetTimer();
     }
     setIsActive(!isActive);
+    if (isActive) {
+      setStartTime(Date.now());
+    } else {
+      setStartTime(null);
+    }
   };
 
   const resetTimer = () => {
     setIsActive(false);
     setTime(focusDuration * 60);
+    setStartTime(null);
   };
 
   const handleFocusDurationChange = useCallback((duration: number) => {
@@ -152,6 +160,12 @@ function App() {
       setTime(duration * 60);
     }
   }, [isActive]);
+
+  const calculateProgress = () => {
+    if (!startTime || !isActive) return 0;
+    const elapsed = (Date.now() - startTime) / 1000 / 60; // minutes
+    return Math.min(elapsed / focusDuration, 1);
+  };
 
   return (
     <AppContainer>
@@ -165,10 +179,18 @@ function App() {
         </Controls>
       </TimerContainer>
       
+      <ProgressBar 
+        progress={calculateProgress()}
+        isActive={isActive}
+      />
+      
       <SettingsPanel
         focusDuration={focusDuration}
         onFocusDurationChange={handleFocusDurationChange}
-        statistics={statistics}
+        statistics={{
+          totalSessions: statistics.sessionsCompleted,
+          totalFocusTime: statistics.totalFocusTime
+        }}
       />
       
       <Canvas style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
@@ -177,7 +199,7 @@ function App() {
         <EnhancedFocusScene 
           isActive={isActive} 
           isAngry={isAngry} 
-          progress={progress}
+          progress={calculateProgress()}
         />
         <OrbitControls 
           enableZoom={false} 
